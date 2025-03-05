@@ -6,69 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script>
-        AFRAME.registerComponent('tap-place', {
-            init: function() {
-                const ground = document.createElement('a-plane');
-                ground.setAttribute('rotation', '-90 0 0');
-                ground.setAttribute('color', '#7BC8A4');
-                ground.setAttribute('opacity', '0.0');
-                this.el.sceneEl.appendChild(ground);
-
-                this.ground = ground;
-                this.cube = document.querySelector('#cube');
-                this.isPlaced = false;
-
-                this.el.addEventListener('click', (event) => {
-                    if (!this.isPlaced) {
-                        const touchPoint = event.detail.intersection.point;
-                        this.cube.setAttribute('position', {
-                            x: touchPoint.x,
-                            y: touchPoint.y + 0.5,
-                            z: touchPoint.z
-                        });
-                        this.cube.setAttribute('visible', true);
-                        this.isPlaced = true;
-                    }
-                });
-            }
-        });
-    </script>
-    <style>
-        .info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            font-family: monospace;
-            font-size: 16px;
-            z-index: 1000;
-        }
-    </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
-    <div class="info">Нажмите на поверхность, чтобы разместить куб</div>
-    
-    <a-scene 
-        embedded 
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;"
-        renderer="logarithmicDepthBuffer: true;"
-        vr-mode-ui="enabled: false">
-
-        <a-entity id="cube" 
-            geometry="primitive: box"
+    <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false; trackingMethod: best;'>
+        <a-entity 
+            geometry="primitive: box" 
             material="color: red; opacity: 0.7"
-            scale="0.5 0.5 0.5"
-            visible="false"
-            animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+            position="0 0 -3"
+            scale="1 1 1"
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+            look-at="[gps-camera]"
+            gps-entity-place="latitude: 55.751244; longitude: 37.618423;">
         </a-entity>
-
-        <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;" raycaster="far: 10000; objects: .clickable">
-        </a-camera>
-
-        <a-entity tap-place class="clickable" visible="false" position="0 0 0"></a-entity>
+        <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 </body>
 </html> 
