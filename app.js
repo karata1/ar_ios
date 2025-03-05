@@ -20,14 +20,14 @@ window.onload = () => {
             updateDebugInfo({
                 userLocation: currentCoords,
                 targetLocation: {
-                    latitude: 51.146041,
-                    longitude: 71.471613
+                    latitude: 51.146124,
+                    longitude: 71.471159
                 },
                 distance: calculateDistance(
                     currentCoords.latitude,
                     currentCoords.longitude,
-                    51.146041,
-                    71.471613
+                    51.146124,
+                    71.471159
                 )
             });
         }, function(error) {
@@ -119,11 +119,11 @@ window.onload = () => {
         schema: {
             latitude: {
                 type: 'number',
-                default: 51.146041,
+                default: 51.146124,
             },
             longitude: {
                 type: 'number',
-                default: 71.471613,
+                default: 71.471159,
             }
         },
         
