@@ -4,13 +4,8 @@
     <title>GPS WebAR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
-    <script src='https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js'></script>
-    <script>
-        THREEx.ArToolkitContext.baseURL = 'https://raw.githack.com/AR-js-org/AR.js/master/three.js/'
-    </script>
-    <script src="app.js"></script>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         .arjs-loader {
             height: 100%;
@@ -33,13 +28,14 @@
 
         #debug {
             position: fixed;
-            top: 50px;
+            top: 10px;
             left: 10px;
             color: white;
             background: rgba(0, 0, 0, 0.8);
             padding: 10px;
             z-index: 999999;
-            font-size: 14px;
+            font-size: 20px;
+            width: 90%;
         }
     </style>
 </head>
@@ -49,22 +45,84 @@
         <div>Загрузка, пожалуйста подождите...</div>
     </div>
 
-    <div id="debug"></div>
+    <div id="debug">Инициализация...</div>
 
     <a-scene
         vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="antialias: true; alpha: true"
         embedded
-        arjs='sourceType: webcam; debugUIEnabled: true; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'
     >
-        <a-camera gps-camera rotation-reader></a-camera>
+        <a-camera gps-camera="minDistance: 1; maxDistance: 100000;" rotation-reader></a-camera>
         
-        <a-box 
+        <a-entity 
+            geometry="primitive: box"
             material="color: red"
             scale="20 20 20"
             gps-entity-place="latitude: 51.146041; longitude: 71.471613"
-            position="0 0 0"
-            look-at="[gps-camera]"
-        ></a-box>
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
+        ></a-entity>
     </a-scene>
+
+    <script>
+        window.onload = () => {
+            const debug = document.querySelector('#debug');
+            
+            function updateDebugInfo(info) {
+                debug.innerHTML = JSON.stringify(info, null, '<br>').replace(/[{}"]/g, '').replace(/,/g, '<br>');
+            }
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        const currentCoords = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        
+                        updateDebugInfo({
+                            "Ваши координаты": currentCoords,
+                            "Координаты куба": {
+                                latitude: 51.146041,
+                                longitude: 71.471613
+                            }
+                        });
+                    },
+                    (err) => {
+                        updateDebugInfo({
+                            "Ошибка геолокации": err.message
+                        });
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 27000
+                    }
+                );
+            }
+
+            const scene = document.querySelector('a-scene');
+            
+            if (scene.hasLoaded) {
+                run();
+            } else {
+                scene.addEventListener('loaded', run);
+            }
+
+            function run() {
+                updateDebugInfo({
+                    "Статус": "AR сцена загружена",
+                    "Инструкция": "Направьте камеру в сторону указанных координат"
+                });
+                
+                setTimeout(() => {
+                    const loader = document.querySelector('.arjs-loader');
+                    if (loader) {
+                        loader.remove();
+                    }
+                }, 1000);
+            }
+        };
+    </script>
 </body>
 </html> 
