@@ -34,8 +34,44 @@
             background: rgba(0, 0, 0, 0.8);
             padding: 10px;
             z-index: 999999;
-            font-size: 20px;
-            width: 90%;
+            font-size: 16px;
+            width: 200px;
+            border-radius: 10px;
+        }
+
+        #compass {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 50%;
+            z-index: 999999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #arrow {
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 40px solid red;
+            transform-origin: center;
+        }
+
+        #distance {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            z-index: 999999;
+            font-size: 16px;
+            border-radius: 10px;
         }
     </style>
 </head>
@@ -46,6 +82,8 @@
     </div>
 
     <div id="debug">Инициализация...</div>
+    <div id="distance">Расстояние: ...</div>
+    <div id="compass"><div id="arrow"></div></div>
 
     <a-scene
         vr-mode-ui="enabled: false"
@@ -67,9 +105,29 @@
     <script>
         window.onload = () => {
             const debug = document.querySelector('#debug');
+            const distance = document.querySelector('#distance');
+            const arrow = document.querySelector('#arrow');
             
             function updateDebugInfo(info) {
-                debug.innerHTML = JSON.stringify(info, null, '<br>').replace(/[{}"]/g, '').replace(/,/g, '<br>');
+                debug.innerHTML = Object.entries(info)
+                    .map(([key, value]) => `<strong>${key}:</strong><br>${typeof value === 'object' ? 
+                        Object.entries(value).map(([k, v]) => `${k}: ${v}`).join('<br>') : 
+                        value}`)
+                    .join('<br><br>');
+            }
+
+            function calculateBearing(lat1, lon1, lat2, lon2) {
+                const φ1 = lat1 * Math.PI / 180;
+                const φ2 = lat2 * Math.PI / 180;
+                const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+                const y = Math.sin(Δλ) * Math.cos(φ2);
+                const x = Math.cos(φ1) * Math.sin(φ2) -
+                    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+                let θ = Math.atan2(y, x);
+                θ = θ * 180 / Math.PI;
+                return (θ + 360) % 360;
             }
 
             if ("geolocation" in navigator) {
@@ -79,18 +137,63 @@
                             latitude: position.coords.latitude,
                             longitude: position.coords.longitude
                         };
+
+                        const targetCoords = {
+                            latitude: 51.146041,
+                            longitude: 71.471613
+                        };
+                        
+                        // Расчет расстояния
+                        const R = 6371e3;
+                        const φ1 = currentCoords.latitude * Math.PI/180;
+                        const φ2 = targetCoords.latitude * Math.PI/180;
+                        const Δφ = (targetCoords.latitude - currentCoords.latitude) * Math.PI/180;
+                        const Δλ = (targetCoords.longitude - currentCoords.longitude) * Math.PI/180;
+
+                        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                                Math.cos(φ1) * Math.cos(φ2) *
+                                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const d = (R * c).toFixed(0);
+
+                        // Обновляем расстояние
+                        distance.innerHTML = `Расстояние: ${d} м`;
+
+                        // Расчет направления
+                        const bearing = calculateBearing(
+                            currentCoords.latitude,
+                            currentCoords.longitude,
+                            targetCoords.latitude,
+                            targetCoords.longitude
+                        );
+
+                        // Обновляем компас
+                        if (window.DeviceOrientationEvent) {
+                            window.addEventListener('deviceorientation', (e) => {
+                                if (e.webkitCompassHeading) {
+                                    // для iOS
+                                    const compass = e.webkitCompassHeading;
+                                    const rotation = bearing - compass;
+                                    arrow.style.transform = `rotate(${rotation}deg)`;
+                                } else if (e.alpha) {
+                                    // для Android
+                                    const compass = e.alpha;
+                                    const rotation = bearing - compass;
+                                    arrow.style.transform = `rotate(${rotation}deg)`;
+                                }
+                            });
+                        }
                         
                         updateDebugInfo({
-                            "Ваши координаты": currentCoords,
-                            "Координаты куба": {
-                                latitude: 51.146041,
-                                longitude: 71.471613
+                            "Координаты": {
+                                "Широта": currentCoords.latitude.toFixed(6),
+                                "Долгота": currentCoords.longitude.toFixed(6)
                             }
                         });
                     },
                     (err) => {
                         updateDebugInfo({
-                            "Ошибка геолокации": err.message
+                            "Ошибка": err.message
                         });
                     },
                     {
@@ -110,11 +213,6 @@
             }
 
             function run() {
-                updateDebugInfo({
-                    "Статус": "AR сцена загружена",
-                    "Инструкция": "Направьте камеру в сторону указанных координат"
-                });
-                
                 setTimeout(() => {
                     const loader = document.querySelector('.arjs-loader');
                     if (loader) {
