@@ -87,21 +87,19 @@
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
         renderer="antialias: true; alpha: true"
         embedded
     >
         <a-camera gps-camera="minDistance: 0; maxDistance: 100000; positionMinAccuracy: 100;" rotation-reader></a-camera>
         
-        <a-entity 
-            geometry="primitive: box"
+        <a-box
             material="color: red"
-            scale="50 50 50"
-            position="0 0 0"
-            rotation="0 0 0"
-            gps-entity-place="latitude: 51.145929; longitude: 71.471594; static-tracking: true; fixedPosition: true"
+            scale="100 100 100"
+            position="0 150 0"
+            gps-entity-place="latitude: 51.145929; longitude: 71.471594"
             animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
-        ></a-entity>
+        ></a-box>
     </a-scene>
 
     <script>
