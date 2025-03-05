@@ -97,7 +97,9 @@
             geometry="primitive: box"
             material="color: red"
             scale="50 50 50"
-            gps-entity-place="latitude: 51.145929; longitude: 71.471594; static-tracking: true"
+            position="0 0 0"
+            rotation="0 0 0"
+            gps-entity-place="latitude: 51.145929; longitude: 71.471594; static-tracking: true; fixedPosition: true"
             animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
         ></a-entity>
     </a-scene>
@@ -133,9 +135,9 @@
 
             function handleOrientation(e) {
                 if (e.webkitCompassHeading) {
-                    deviceHeading = e.webkitCompassHeading;
+                    deviceHeading = Math.round(e.webkitCompassHeading * 100) / 100;
                 } else if (e.alpha) {
-                    deviceHeading = 360 - e.alpha;
+                    deviceHeading = Math.round((360 - e.alpha) * 100) / 100;
                 }
                 updateArrow();
             }
@@ -150,19 +152,19 @@
                         Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
 
                 let bearing = Math.atan2(y, x) * 180 / Math.PI;
-                bearing = (bearing + 360) % 360;
+                bearing = Math.round((bearing + 360) % 360 * 100) / 100;
                 return bearing;
             }
 
             function updateArrow() {
-                const rotation = currentBearing - deviceHeading;
+                const rotation = Math.round((currentBearing - deviceHeading) * 100) / 100;
                 arrow.style.transform = `rotate(${rotation}deg)`;
                 
                 updateDebugInfo({
                     "Направление": {
-                        "Компас": deviceHeading.toFixed(1) + "°",
-                        "Цель": currentBearing.toFixed(1) + "°",
-                        "Поворот": rotation.toFixed(1) + "°"
+                        "Компас": deviceHeading.toFixed(2) + "°",
+                        "Цель": currentBearing.toFixed(2) + "°",
+                        "Поворот": rotation.toFixed(2) + "°"
                     }
                 });
             }
