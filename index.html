@@ -107,6 +107,8 @@
             const debug = document.querySelector('#debug');
             const distance = document.querySelector('#distance');
             const arrow = document.querySelector('#arrow');
+            let currentBearing = 0;
+            let deviceHeading = 0;
             
             function updateDebugInfo(info) {
                 debug.innerHTML = Object.entries(info)
@@ -116,18 +118,53 @@
                     .join('<br><br>');
             }
 
+            // Запрашиваем разрешение на использование датчиков
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response == 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+
+            function handleOrientation(e) {
+                if (e.webkitCompassHeading) {
+                    deviceHeading = e.webkitCompassHeading;
+                } else if (e.alpha) {
+                    deviceHeading = 360 - e.alpha;
+                }
+                updateArrow();
+            }
+
             function calculateBearing(lat1, lon1, lat2, lon2) {
-                const φ1 = lat1 * Math.PI / 180;
-                const φ2 = lat2 * Math.PI / 180;
-                const Δλ = (lon2 - lon1) * Math.PI / 180;
+                lat1 = lat1 * Math.PI / 180;
+                lat2 = lat2 * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
 
-                const y = Math.sin(Δλ) * Math.cos(φ2);
-                const x = Math.cos(φ1) * Math.sin(φ2) -
-                    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+                const y = Math.sin(dLon) * Math.cos(lat2);
+                const x = Math.cos(lat1) * Math.sin(lat2) -
+                        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
 
-                let θ = Math.atan2(y, x);
-                θ = θ * 180 / Math.PI;
-                return (θ + 360) % 360;
+                let bearing = Math.atan2(y, x) * 180 / Math.PI;
+                bearing = (bearing + 360) % 360;
+                return bearing;
+            }
+
+            function updateArrow() {
+                const rotation = currentBearing - deviceHeading;
+                arrow.style.transform = `rotate(${rotation}deg)`;
+                
+                updateDebugInfo({
+                    "Направление": {
+                        "Компас": deviceHeading.toFixed(1) + "°",
+                        "Цель": currentBearing.toFixed(1) + "°",
+                        "Поворот": rotation.toFixed(1) + "°"
+                    }
+                });
             }
 
             if ("geolocation" in navigator) {
@@ -159,30 +196,15 @@
                         // Обновляем расстояние
                         distance.innerHTML = `Расстояние: ${d} м`;
 
-                        // Расчет направления
-                        const bearing = calculateBearing(
+                        // Обновляем направление
+                        currentBearing = calculateBearing(
                             currentCoords.latitude,
                             currentCoords.longitude,
                             targetCoords.latitude,
                             targetCoords.longitude
                         );
-
-                        // Обновляем компас
-                        if (window.DeviceOrientationEvent) {
-                            window.addEventListener('deviceorientation', (e) => {
-                                if (e.webkitCompassHeading) {
-                                    // для iOS
-                                    const compass = e.webkitCompassHeading;
-                                    const rotation = bearing - compass;
-                                    arrow.style.transform = `rotate(${rotation}deg)`;
-                                } else if (e.alpha) {
-                                    // для Android
-                                    const compass = e.alpha;
-                                    const rotation = bearing - compass;
-                                    arrow.style.transform = `rotate(${rotation}deg)`;
-                                }
-                            });
-                        }
+                        
+                        updateArrow();
                         
                         updateDebugInfo({
                             "Координаты": {
