@@ -3,13 +3,58 @@
 <head>
 <title>AR.js A-Frame Location-based</title>
 <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-<script type='text/javascript' src='https://raw.githack.com/AR-js-org/AR.js/3.4.5/three.js/build/ar-threex-location-only.js'></script>
-<script type='text/javascript' src='https://raw.githack.com/AR-js-org/AR.js/3.4.5/aframe/build/aframe-ar.js'></script>
+<script type='text/javascript' src='https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex-location-only.js'></script>
+<script type='text/javascript' src='https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js'></script>
+<script>
+    AFRAME.registerComponent('gps-new-entity-place', {
+        schema: {
+            latitude: {
+                type: 'number',
+                default: 0
+            },
+            longitude: {
+                type: 'number',
+                default: 0
+            }
+        },
+        init: function() {
+            this.originalPosition = this.el.getAttribute('position');
+            this.fixedPosition = true;
+        },
+        update: function() {
+            if (this.fixedPosition) {
+                this.el.setAttribute('position', this.originalPosition);
+            }
+        }
+    });
+</script>
+<style>
+    .info {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: white;
+        background: rgba(0,0,0,0.7);
+        padding: 10px;
+        font-family: monospace;
+        font-size: 16px;
+        z-index: 1000;
+    }
+</style>
 </head>
-<body>
+<body style="margin: 0; overflow: hidden;">
+<div class="info">Куб должен быть зафиксирован на координатах</div>
+
 <a-scene vr-mode-ui='enabled: false' arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: false' renderer='antialias: true; alpha: true'>
     <a-camera gps-new-camera='gpsMinDistance: 5'></a-camera>
-    <a-box color="red" gps-new-entity-place="latitude: 51.146007; longitude: 71.471833" depth="5" height="5" width="5"></a-box>
+    <a-box 
+        position="0 0 0"
+        rotation="0 45 0"
+        color="red" 
+        scale="1 1 1"
+        gps-new-entity-place="latitude: 51.146007; longitude: 71.471833"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+    </a-box>
 </a-scene>
 </body>
 </html>
