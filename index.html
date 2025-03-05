@@ -1,15 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Advanced GPS AR</title>
+    <title>Simple AR Cube</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
-    <script src="js/kalman.js"></script>
-    <script src="js/surface.js"></script>
-    <script src="js/gps.js"></script>
-    <script src="js/ar-core.js"></script>
     <style>
         body {
             margin: 0;
@@ -24,30 +19,7 @@
             padding: 10px;
             font-family: monospace;
             font-size: 14px;
-            border-radius: 5px;
             z-index: 1000;
-        }
-        #compass {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 100px;
-            height: 100px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 50%;
-            z-index: 1000;
-        }
-        #arrow {
-            width: 0;
-            height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-bottom: 40px solid red;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform-origin: 50% 0;
-            transform: translateX(-50%) translateY(-50%);
         }
         .loader {
             position: fixed;
@@ -64,7 +36,144 @@
 </head>
 <body>
     <div id="debug">Инициализация...</div>
-    <div id="compass"><div id="arrow"></div></div>
-    <div class="loader">Загрузка системы AR...</div>
+    <div class="loader">Загрузка AR...</div>
+
+    <script>
+        class SimpleAR {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                this.cube = null;
+                this.video = null;
+                this.init();
+            }
+
+            async init() {
+                // Настройка рендерера
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                document.body.appendChild(this.renderer.domElement);
+
+                // Настройка камеры
+                this.camera.position.z = 5;
+
+                // Добавление освещения
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                this.scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                directionalLight.position.set(0, 1, 0);
+                this.scene.add(directionalLight);
+
+                // Создание куба
+                this.createCube();
+
+                // Инициализация камеры
+                await this.initCamera();
+
+                // Обработчики событий
+                window.addEventListener('resize', this.handleResize.bind(this));
+                window.addEventListener('click', this.handleClick.bind(this));
+
+                // Запуск анимации
+                this.animate();
+
+                // Скрываем загрузчик
+                const loader = document.querySelector('.loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+            }
+
+            async initCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+
+                    this.video = document.createElement('video');
+                    this.video.srcObject = stream;
+                    this.video.setAttribute('playsinline', '');
+                    await this.video.play();
+
+                    // Создаем текстуру из видео
+                    const texture = new THREE.VideoTexture(this.video);
+                    const geometry = new THREE.PlaneGeometry(16, 9);
+                    geometry.scale(0.5, 0.5, 0.5);
+                    const material = new THREE.MeshBasicMaterial({ map: texture });
+                    const screen = new THREE.Mesh(geometry, material);
+                    screen.position.z = -5;
+                    this.scene.add(screen);
+
+                } catch (error) {
+                    console.error('Ошибка доступа к камере:', error);
+                }
+            }
+
+            createCube() {
+                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: 0xff0000,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                this.cube = new THREE.Mesh(geometry, material);
+                this.cube.visible = false; // Изначально куб скрыт
+                this.scene.add(this.cube);
+            }
+
+            handleClick(event) {
+                // Получаем координаты клика
+                const x = (event.clientX / window.innerWidth) * 2 - 1;
+                const y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                // Создаем луч для определения точки в 3D пространстве
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera({ x, y }, this.camera);
+
+                // Находим точку на виртуальной поверхности
+                const distance = 3; // Расстояние от камеры
+                const point = raycaster.ray.at(distance, new THREE.Vector3());
+
+                // Размещаем куб
+                this.cube.position.copy(point);
+                this.cube.visible = true;
+
+                // Обновляем отладочную информацию
+                const debug = document.getElementById('debug');
+                debug.innerHTML = `Куб размещен на:<br>X: ${point.x.toFixed(2)}<br>Y: ${point.y.toFixed(2)}<br>Z: ${point.z.toFixed(2)}`;
+            }
+
+            handleResize() {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+            }
+
+            animate() {
+                requestAnimationFrame(this.animate.bind(this));
+
+                // Вращение куба
+                if (this.cube && this.cube.visible) {
+                    this.cube.rotation.y += 0.01;
+                }
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Запуск приложения
+        window.onload = () => {
+            const ar = new SimpleAR();
+        };
+    </script>
 </body>
 </html>
