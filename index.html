@@ -25,103 +25,28 @@
             font-size: 1.25em;
             color: white;
         }
-
-        #placeButton {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.8);
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            z-index: 100;
-        }
-
-        #info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            font-family: monospace;
-            font-size: 14px;
-            z-index: 100;
-        }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
     <div class="arjs-loader">
-        <div>Загрузка AR...</div>
+        <div>Загрузка...</div>
     </div>
-    <div id="info">Наведите камеру на поверхность</div>
-    <button id="placeButton">Разместить куб</button>
 
     <a-scene
         vr-mode-ui="enabled: false"
         embedded
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+        arjs="sourceType: webcam; debugUIEnabled: false;">
 
-        <a-camera gps-camera rotation-reader></a-camera>
+        <a-camera position="0 0 0"></a-camera>
 
         <a-box
-            id="ar-cube"
+            position="0 0 -2"
+            rotation="0 45 0"
+            scale="1 1 1"
             material="color: red; opacity: 0.7"
-            scale="0.2 0.2 0.2"
-            position="0 0 0"
-            visible="false"
-            animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
-        ></a-box>
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+        </a-box>
+
     </a-scene>
-
-    <script>
-        window.onload = () => {
-            const scene = document.querySelector('a-scene');
-            const cube = document.querySelector('#ar-cube');
-            const placeButton = document.getElementById('placeButton');
-            const info = document.getElementById('info');
-            let isPlaced = false;
-
-            // Ждем загрузки сцены
-            scene.addEventListener('loaded', function () {
-                const loader = document.querySelector('.arjs-loader');
-                if (loader) {
-                    loader.style.display = 'none';
-                }
-            });
-
-            // Обработчик нажатия кнопки
-            placeButton.addEventListener('click', function() {
-                if (!isPlaced) {
-                    // Получаем текущую позицию камеры
-                    const camera = document.querySelector('[gps-camera]');
-                    const position = camera.getAttribute('position');
-                    
-                    // Размещаем куб перед камерой
-                    cube.setAttribute('position', {
-                        x: position.x,
-                        y: position.y - 1, // Немного ниже уровня камеры
-                        z: position.z - 2  // 2 метра перед камерой
-                    });
-                    
-                    cube.setAttribute('visible', true);
-                    isPlaced = true;
-                    placeButton.textContent = 'Куб размещен';
-                    info.textContent = 'Куб размещен на поверхности';
-                }
-            });
-
-            // Обработка ошибок
-            scene.addEventListener('camera-error', function() {
-                info.textContent = 'Ошибка доступа к камере';
-            });
-
-            scene.addEventListener('camera-init', function() {
-                info.textContent = 'Камера инициализирована';
-            });
-        };
-    </script>
 </body>
 </html> 
