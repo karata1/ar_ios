@@ -4,39 +4,28 @@
     <title>Simple AR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.132.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://unpkg.com/three@0.132.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
+        .arjs-loader {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        #info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
+
+        .arjs-loader div {
+            text-align: center;
+            font-size: 1.25em;
             color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            font-family: monospace;
-            font-size: 14px;
-            z-index: 100;
         }
-        #startAR {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 20px 40px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 18px;
-            cursor: pointer;
-            z-index: 100;
-        }
+
         #placeButton {
             position: fixed;
             bottom: 20px;
@@ -48,180 +37,90 @@
             border-radius: 5px;
             font-size: 16px;
             z-index: 100;
-            display: none;
+        }
+
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            z-index: 100;
         }
     </style>
 </head>
-<body>
-    <div id="info">Нажмите "Запустить AR" для начала</div>
-    <button id="startAR">Запустить AR</button>
+<body style="margin: 0; overflow: hidden;">
+    <div class="arjs-loader">
+        <div>Загрузка AR...</div>
+    </div>
+    <div id="info">Наведите камеру на поверхность</div>
     <button id="placeButton">Разместить куб</button>
 
+    <a-scene
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+
+        <a-camera gps-camera rotation-reader></a-camera>
+
+        <a-box
+            id="ar-cube"
+            material="color: red; opacity: 0.7"
+            scale="0.2 0.2 0.2"
+            position="0 0 0"
+            visible="false"
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+        ></a-box>
+    </a-scene>
+
     <script>
-        class ARApp {
-            constructor() {
-                this.scene = null;
-                this.camera = null;
-                this.renderer = null;
-                this.cube = null;
-                this.reticle = null;
-                this.hitTestSource = null;
-                this.hitTestSourceRequested = false;
-                this.init();
-            }
-
-            async init() {
-                // Создаем сцену
-                this.scene = new THREE.Scene();
-
-                // Настраиваем камеру
-                this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-
-                // Настраиваем рендерер
-                this.renderer = new THREE.WebGLRenderer({
-                    antialias: true,
-                    alpha: true
-                });
-                this.renderer.setPixelRatio(window.devicePixelRatio);
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.xr.enabled = true;
-                document.body.appendChild(this.renderer.domElement);
-
-                // Добавляем освещение
-                const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-                light.position.set(0.5, 1, 0.25);
-                this.scene.add(light);
-
-                // Создаем прицел для размещения
-                this.createReticle();
-
-                // Создаем куб
-                this.createCube();
-
-                // Добавляем обработчики событий
-                window.addEventListener('resize', this.onWindowResize.bind(this), false);
-                document.getElementById('placeButton').addEventListener('click', this.placeCube.bind(this));
-
-                // Настраиваем кнопку запуска AR
-                const startARButton = document.getElementById('startAR');
-                startARButton.addEventListener('click', this.startAR.bind(this));
-
-                // Проверяем поддержку AR
-                if ('xr' in navigator) {
-                    navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-                        if (!supported) {
-                            startARButton.textContent = 'AR не поддерживается';
-                            startARButton.disabled = true;
-                        }
-                    });
-                } else {
-                    startARButton.textContent = 'WebXR не поддерживается';
-                    startARButton.disabled = true;
-                }
-            }
-
-            async startAR() {
-                try {
-                    const session = await navigator.xr.requestSession('immersive-ar', {
-                        requiredFeatures: ['hit-test']
-                    });
-
-                    this.renderer.xr.setReferenceSpaceType('local');
-                    await this.renderer.xr.setSession(session);
-                    
-                    document.getElementById('startAR').style.display = 'none';
-                    document.getElementById('info').textContent = 'Наведите камеру на поверхность';
-                    
-                    // Запускаем анимацию
-                    this.renderer.setAnimationLoop(this.render.bind(this));
-                } catch (error) {
-                    console.error('Ошибка запуска AR:', error);
-                    document.getElementById('info').textContent = 'Ошибка запуска AR: ' + error.message;
-                }
-            }
-
-            createReticle() {
-                const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
-                const material = new THREE.MeshBasicMaterial();
-                this.reticle = new THREE.Mesh(geometry, material);
-                this.reticle.matrixAutoUpdate = false;
-                this.reticle.visible = false;
-                this.scene.add(this.reticle);
-            }
-
-            createCube() {
-                const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                const material = new THREE.MeshPhongMaterial({
-                    color: 0xff0000,
-                    transparent: true,
-                    opacity: 0.7
-                });
-                this.cube = new THREE.Mesh(geometry, material);
-                this.cube.visible = false;
-                this.scene.add(this.cube);
-            }
-
-            placeCube() {
-                if (this.reticle.visible) {
-                    this.cube.position.setFromMatrixPosition(this.reticle.matrix);
-                    this.cube.visible = true;
-                }
-            }
-
-            onWindowResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-
-            render(timestamp, frame) {
-                if (frame) {
-                    const referenceSpace = this.renderer.xr.getReferenceSpace();
-                    const session = this.renderer.xr.getSession();
-
-                    if (this.hitTestSourceRequested === false) {
-                        session.requestReferenceSpace('viewer').then((referenceSpace) => {
-                            session.requestHitTestSource({ space: referenceSpace }).then((source) => {
-                                this.hitTestSource = source;
-                            });
-                        });
-
-                        session.addEventListener('end', () => {
-                            this.hitTestSourceRequested = false;
-                            this.hitTestSource = null;
-                            document.getElementById('startAR').style.display = 'block';
-                            document.getElementById('info').textContent = 'Нажмите "Запустить AR" для начала';
-                        });
-
-                        this.hitTestSourceRequested = true;
-                    }
-
-                    if (this.hitTestSource) {
-                        const hitTestResults = frame.getHitTestResults(this.hitTestSource);
-                        if (hitTestResults.length) {
-                            const hit = hitTestResults[0];
-                            this.reticle.visible = true;
-                            this.reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-                            document.getElementById('placeButton').style.display = 'block';
-                        } else {
-                            this.reticle.visible = false;
-                            document.getElementById('placeButton').style.display = 'none';
-                        }
-                    }
-                }
-
-                // Вращаем куб, если он видим
-                if (this.cube && this.cube.visible) {
-                    this.cube.rotation.y += 0.01;
-                }
-
-                this.renderer.render(this.scene, this.camera);
-            }
-        }
-
-        // Запускаем приложение
         window.onload = () => {
-            const app = new ARApp();
+            const scene = document.querySelector('a-scene');
+            const cube = document.querySelector('#ar-cube');
+            const placeButton = document.getElementById('placeButton');
+            const info = document.getElementById('info');
+            let isPlaced = false;
+
+            // Ждем загрузки сцены
+            scene.addEventListener('loaded', function () {
+                const loader = document.querySelector('.arjs-loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+            });
+
+            // Обработчик нажатия кнопки
+            placeButton.addEventListener('click', function() {
+                if (!isPlaced) {
+                    // Получаем текущую позицию камеры
+                    const camera = document.querySelector('[gps-camera]');
+                    const position = camera.getAttribute('position');
+                    
+                    // Размещаем куб перед камерой
+                    cube.setAttribute('position', {
+                        x: position.x,
+                        y: position.y - 1, // Немного ниже уровня камеры
+                        z: position.z - 2  // 2 метра перед камерой
+                    });
+                    
+                    cube.setAttribute('visible', true);
+                    isPlaced = true;
+                    placeButton.textContent = 'Куб размещен';
+                    info.textContent = 'Куб размещен на поверхности';
+                }
+            });
+
+            // Обработка ошибок
+            scene.addEventListener('camera-error', function() {
+                info.textContent = 'Ошибка доступа к камере';
+            });
+
+            scene.addEventListener('camera-init', function() {
+                info.textContent = 'Камера инициализирована';
+            });
         };
     </script>
 </body>
