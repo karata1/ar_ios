@@ -1,249 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GPS WebAR</title>
+    <title>Advanced GPS AR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="js/kalman.js"></script>
+    <script src="js/surface.js"></script>
+    <script src="js/gps.js"></script>
+    <script src="js/ar-core.js"></script>
     <style>
-        .arjs-loader {
-            height: 100%;
-            width: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        body {
+            margin: 0;
+            overflow: hidden;
         }
-
-        .arjs-loader div {
-            text-align: center;
-            font-size: 1.25em;
-            color: white;
-        }
-
         #debug {
             position: fixed;
             top: 10px;
             left: 10px;
+            background: rgba(0, 0, 0, 0.7);
             color: white;
-            background: rgba(0, 0, 0, 0.8);
             padding: 10px;
-            z-index: 999999;
-            font-size: 16px;
-            width: 200px;
-            border-radius: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            border-radius: 5px;
+            z-index: 1000;
         }
-
         #compass {
             position: fixed;
             bottom: 20px;
             right: 20px;
             width: 100px;
             height: 100px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.7);
             border-radius: 50%;
-            z-index: 999999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            z-index: 1000;
         }
-
         #arrow {
             width: 0;
             height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
             border-bottom: 40px solid red;
-            transform-origin: center;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform-origin: 50% 0;
+            transform: translateX(-50%) translateY(-50%);
         }
-
-        #distance {
+        .loader {
             position: fixed;
-            top: 10px;
-            right: 10px;
-            color: white;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            z-index: 999999;
-            font-size: 16px;
+            color: white;
+            padding: 20px;
             border-radius: 10px;
+            z-index: 2000;
         }
     </style>
 </head>
-
-<body style="margin: 0; overflow: hidden;">
-    <div class="arjs-loader">
-        <div>Загрузка, пожалуйста подождите...</div>
-    </div>
-
+<body>
     <div id="debug">Инициализация...</div>
-    <div id="distance">Расстояние: ...</div>
     <div id="compass"><div id="arrow"></div></div>
-
-    <a-scene
-        vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
-        renderer="antialias: true; alpha: true"
-        embedded
-    >
-        <a-camera gps-camera="minDistance: 0; maxDistance: 100000; positionMinAccuracy: 100;" rotation-reader></a-camera>
-        
-        <a-box
-            material="color: red"
-            scale="100 100 100"
-            position="0 150 0"
-            gps-entity-place="latitude: 51.145929; longitude: 71.471594; static-tracking: true; fixedPosition: true"
-            animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
-            look-at="[gps-camera]"
-        ></a-box>
-    </a-scene>
-
-    <script>
-        window.onload = () => {
-            const debug = document.querySelector('#debug');
-            const distance = document.querySelector('#distance');
-            const arrow = document.querySelector('#arrow');
-            let currentBearing = 0;
-            let deviceHeading = 0;
-            
-            function updateDebugInfo(info) {
-                debug.innerHTML = Object.entries(info)
-                    .map(([key, value]) => `<strong>${key}:</strong><br>${typeof value === 'object' ? 
-                        Object.entries(value).map(([k, v]) => `${k}: ${v}`).join('<br>') : 
-                        value}`)
-                    .join('<br><br>');
-            }
-
-            // Запрашиваем разрешение на использование датчиков
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(response => {
-                        if (response == 'granted') {
-                            window.addEventListener('deviceorientation', handleOrientation);
-                        }
-                    })
-                    .catch(console.error);
-            } else {
-                window.addEventListener('deviceorientation', handleOrientation);
-            }
-
-            function handleOrientation(e) {
-                if (e.webkitCompassHeading) {
-                    deviceHeading = Math.round(e.webkitCompassHeading * 100) / 100;
-                } else if (e.alpha) {
-                    deviceHeading = Math.round((360 - e.alpha) * 100) / 100;
-                }
-                updateArrow();
-            }
-
-            function calculateBearing(lat1, lon1, lat2, lon2) {
-                lat1 = lat1 * Math.PI / 180;
-                lat2 = lat2 * Math.PI / 180;
-                const dLon = (lon2 - lon1) * Math.PI / 180;
-
-                const y = Math.sin(dLon) * Math.cos(lat2);
-                const x = Math.cos(lat1) * Math.sin(lat2) -
-                        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-
-                let bearing = Math.atan2(y, x) * 180 / Math.PI;
-                bearing = Math.round((bearing + 360) % 360 * 100) / 100;
-                return bearing;
-            }
-
-            function updateArrow() {
-                const rotation = Math.round((currentBearing - deviceHeading) * 100) / 100;
-                arrow.style.transform = `rotate(${rotation}deg)`;
-                
-                updateDebugInfo({
-                    "Направление": {
-                        "Компас": deviceHeading.toFixed(2) + "°",
-                        "Цель": currentBearing.toFixed(2) + "°",
-                        "Поворот": rotation.toFixed(2) + "°"
-                    }
-                });
-            }
-
-            if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(
-                    (position) => {
-                        const currentCoords = {
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude
-                        };
-
-                        const targetCoords = {
-                            latitude: 51.145929,
-                            longitude: 71.471594
-                        };
-                        
-                        // Расчет расстояния
-                        const R = 6371e3;
-                        const φ1 = currentCoords.latitude * Math.PI/180;
-                        const φ2 = targetCoords.latitude * Math.PI/180;
-                        const Δφ = (targetCoords.latitude - currentCoords.latitude) * Math.PI/180;
-                        const Δλ = (targetCoords.longitude - currentCoords.longitude) * Math.PI/180;
-
-                        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                                Math.cos(φ1) * Math.cos(φ2) *
-                                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                        const d = (R * c).toFixed(0);
-
-                        // Обновляем расстояние
-                        distance.innerHTML = `Расстояние: ${d} м`;
-
-                        // Обновляем направление
-                        currentBearing = calculateBearing(
-                            currentCoords.latitude,
-                            currentCoords.longitude,
-                            targetCoords.latitude,
-                            targetCoords.longitude
-                        );
-                        
-                        updateArrow();
-                        
-                        updateDebugInfo({
-                            "Координаты": {
-                                "Широта": currentCoords.latitude.toFixed(6),
-                                "Долгота": currentCoords.longitude.toFixed(6)
-                            }
-                        });
-                    },
-                    (err) => {
-                        updateDebugInfo({
-                            "Ошибка": err.message
-                        });
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        maximumAge: 0,
-                        timeout: 27000
-                    }
-                );
-            }
-
-            const scene = document.querySelector('a-scene');
-            
-            if (scene.hasLoaded) {
-                run();
-            } else {
-                scene.addEventListener('loaded', run);
-            }
-
-            function run() {
-                setTimeout(() => {
-                    const loader = document.querySelector('.arjs-loader');
-                    if (loader) {
-                        loader.remove();
-                    }
-                }, 1000);
-            }
-        };
-    </script>
+    <div class="loader">Загрузка системы AR...</div>
 </body>
-</html> 
+</html>
