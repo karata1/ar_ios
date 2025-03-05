@@ -5,38 +5,16 @@ window.onload = () => {
         loader.remove();
     }
 
-    // Запрашиваем разрешение на использование геолокации
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            // Получаем текущие координаты
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-
-            // Находим тестовый куб
-            let testCube = document.querySelector('#test-cube');
-            
-            // Устанавливаем координаты куба
-            testCube.setAttribute('gps-entity-place', `latitude: ${latitude}; longitude: ${longitude};`);
-            
-            // Добавляем обработчик события для отслеживания загрузки модели
-            testCube.addEventListener('loaded', () => {
-                window.dispatchEvent(new CustomEvent('gps-entity-place-loaded'));
-            });
-        });
-    } else {
-        console.error("Геолокация не поддерживается в вашем браузере");
-    }
-
     // Добавляем обработчик для фиксации положения объекта
     AFRAME.registerComponent('gps-entity-place', {
         schema: {
             latitude: {
                 type: 'number',
-                default: 0,
+                default: 51.146041,
             },
             longitude: {
                 type: 'number',
-                default: 0,
+                default: 71.471613,
             }
         },
         
