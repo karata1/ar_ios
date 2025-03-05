@@ -124,6 +124,10 @@ window.onload = () => {
             longitude: {
                 type: 'number',
                 default: 71.471574,
+            },
+            'static-tracking': {
+                type: 'boolean',
+                default: true
             }
         },
         
