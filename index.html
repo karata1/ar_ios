@@ -91,12 +91,12 @@
         renderer="antialias: true; alpha: true"
         embedded
     >
-        <a-camera gps-camera="minDistance: 1; maxDistance: 100000;" rotation-reader></a-camera>
+        <a-camera gps-camera="minDistance: 0; maxDistance: 100000; positionMinAccuracy: 100;" rotation-reader></a-camera>
         
         <a-entity 
             geometry="primitive: box"
             material="color: red"
-            scale="20 20 20"
+            scale="50 50 50"
             gps-entity-place="latitude: 51.145929; longitude: 71.471594; static-tracking: true"
             animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
         ></a-entity>
