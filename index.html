@@ -4,126 +4,71 @@
     <title>Simple AR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script>
+        AFRAME.registerComponent('tap-place', {
+            init: function() {
+                const ground = document.createElement('a-plane');
+                ground.setAttribute('rotation', '-90 0 0');
+                ground.setAttribute('color', '#7BC8A4');
+                ground.setAttribute('opacity', '0.0');
+                this.el.sceneEl.appendChild(ground);
+
+                this.ground = ground;
+                this.cube = document.querySelector('#cube');
+                this.isPlaced = false;
+
+                this.el.addEventListener('click', (event) => {
+                    if (!this.isPlaced) {
+                        const touchPoint = event.detail.intersection.point;
+                        this.cube.setAttribute('position', {
+                            x: touchPoint.x,
+                            y: touchPoint.y + 0.5,
+                            z: touchPoint.z
+                        });
+                        this.cube.setAttribute('visible', true);
+                        this.isPlaced = true;
+                    }
+                });
+            }
+        });
+    </script>
     <style>
-        .arjs-loader {
-            height: 100%;
-            width: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .arjs-loader div {
-            text-align: center;
-            font-size: 1.25em;
-            color: white;
-        }
-
-        #placeButton {
+        .info {
             position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.8);
-            border: none;
-            border-radius: 5px;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            font-family: monospace;
             font-size: 16px;
-            z-index: 100;
+            z-index: 1000;
         }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
-    <div class="arjs-loader">
-        <div>Загрузка...</div>
-    </div>
-    <button id="placeButton">Разместить куб</button>
+    <div class="info">Нажмите на поверхность, чтобы разместить куб</div>
+    
+    <a-scene 
+        embedded 
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;"
+        renderer="logarithmicDepthBuffer: true;"
+        vr-mode-ui="enabled: false">
 
-    <a-scene
-        embedded
-        vr-mode-ui="enabled: false"
-        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
-
-        <a-entity
-            id="cube"
-            visible="false"
+        <a-entity id="cube" 
             geometry="primitive: box"
             material="color: red; opacity: 0.7"
             scale="0.5 0.5 0.5"
+            visible="false"
             animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
         </a-entity>
 
-        <a-camera position="0 1.6 0"></a-camera>
+        <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;" raycaster="far: 10000; objects: .clickable">
+        </a-camera>
+
+        <a-entity tap-place class="clickable" visible="false" position="0 0 0"></a-entity>
     </a-scene>
-
-    <script>
-        window.onload = () => {
-            const cube = document.querySelector('#cube');
-            const placeButton = document.getElementById('placeButton');
-            let isPlaced = false;
-
-            AFRAME.registerComponent('ar-hit-test', {
-                init: function () {
-                    this.xrHitTestSource = null;
-                    this.viewerSpace = null;
-                    this.refSpace = null;
-
-                    this.el.sceneEl.renderer.xr.addEventListener('sessionend', (ev) => {
-                        this.xrHitTestSource = null;
-                    });
-
-                    this.el.sceneEl.renderer.xr.addEventListener('sessionstart', (ev) => {
-                        this.session = this.el.sceneEl.renderer.xr.getSession();
-
-                        this.session.requestReferenceSpace('viewer').then((space) => {
-                            this.viewerSpace = space;
-                            this.session.requestHitTestSource({space: this.viewerSpace})
-                                .then((hitTestSource) => {
-                                    this.xrHitTestSource = hitTestSource;
-                                });
-                        });
-
-                        this.session.requestReferenceSpace('local').then((space) => {
-                            this.refSpace = space;
-                        });
-                    });
-                },
-
-                tick: function () {
-                    if (this.el.sceneEl.is('ar-mode')) {
-                        if (!this.viewerSpace) return;
-
-                        const frame = this.el.sceneEl.frame;
-                        const xrViewerPose = frame.getViewerPose(this.refSpace);
-
-                        if (this.xrHitTestSource && xrViewerPose) {
-                            const hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
-                            if (hitTestResults.length > 0) {
-                                const hit = hitTestResults[0];
-                                const pose = hit.getPose(this.refSpace);
-                                
-                                if (!isPlaced) {
-                                    placeButton.style.display = 'block';
-                                    placeButton.onclick = () => {
-                                        cube.setAttribute('position', pose.transform.position);
-                                        cube.setAttribute('visible', true);
-                                        isPlaced = true;
-                                        placeButton.style.display = 'none';
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        };
-    </script>
 </body>
 </html> 
