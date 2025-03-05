@@ -8,15 +8,10 @@ window.onload = () => {
 
     // Удаляем загрузочный экран после инициализации
     let loader = document.querySelector('.arjs-loader');
-    if (loader) {
-        setTimeout(() => {
-            loader.remove();
-        }, 2000);
-    }
-
+    
     // Проверяем геолокацию
     if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(function(position) {
+        navigator.geolocation.watchPosition(function(position) {
             const currentCoords = {
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude
@@ -62,6 +57,48 @@ window.onload = () => {
         return (R * c).toFixed(2) + ' meters'; // расстояние в метрах
     }
 
+    // Ждем загрузки сцены
+    const scene = document.querySelector('a-scene');
+    scene.addEventListener('loaded', function () {
+        updateDebugInfo({
+            status: 'Сцена загружена'
+        });
+        if (loader) {
+            loader.remove();
+        }
+    });
+
+    // Обработчик ошибок
+    scene.addEventListener('arjs-video-error', function() {
+        updateDebugInfo({
+            error: 'Ошибка инициализации видео AR'
+        });
+    });
+
+    // Обработчик успешной инициализации видео
+    scene.addEventListener('arjs-video-loaded', function() {
+        updateDebugInfo({
+            status: 'Видео AR загружено'
+        });
+    });
+
+    // Обработчик для камеры
+    const camera = document.querySelector('[gps-camera]');
+    camera.addEventListener('gps-camera-update-position', function(event) {
+        updateDebugInfo({
+            cameraPosition: event.detail,
+            status: 'Позиция камеры обновлена'
+        });
+    });
+
+    // Обработчик для AR объекта
+    const box = document.querySelector('a-box');
+    box.addEventListener('loaded', function() {
+        updateDebugInfo({
+            status: 'AR объект загружен'
+        });
+    });
+
     // Обработчики событий AR
     window.addEventListener('camera-init', (e) => {
         updateDebugInfo({
@@ -76,24 +113,6 @@ window.onload = () => {
             error: e
         });
     });
-
-    window.addEventListener('gps-camera-update-position', (e) => {
-        updateDebugInfo({
-            event: 'gps-camera-update-position',
-            position: e.detail
-        });
-    });
-
-    // Обработчик для объекта AR
-    const entity = document.querySelector('[gps-entity-place]');
-    if (entity) {
-        entity.addEventListener('loaded', () => {
-            updateDebugInfo({
-                event: 'ar-object-loaded',
-                status: 'AR объект загружен'
-            });
-        });
-    }
 
     // Регистрируем компонент
     AFRAME.registerComponent('gps-entity-place', {
